@@ -1,16 +1,43 @@
-import { useEffect, useState } from 'react';
-import { calculateMix } from '../utils/calculateMix';
+import { useEffect, useRef, useState } from 'react';
+import { calculateMix, PRODUCTS } from '../utils/calculateMix';
 
 const Calculator = () => {
     const [waterWeight, setWaterWeight] = useState('');
     const [wastePercentage, setWastePercentage] = useState(10);
-    const [results, setResults] = useState(calculateMix(0, 10));
+    const [selectedProduct, setSelectedProduct] = useState('AC100');
+    const [results, setResults] = useState(calculateMix(0, 10, 'AC100'));
+    const [isAnimating, setIsAnimating] = useState(false);
+    const prevProductRef = useRef('AC100');
 
+    // Load from local storage on mount
     useEffect(() => {
+        const savedProduct = localStorage.getItem('jesmonite_product');
+        const savedWeight = localStorage.getItem('jesmonite_weight');
+        const savedWaste = localStorage.getItem('jesmonite_waste');
+
+        if (savedProduct && PRODUCTS[savedProduct]) setSelectedProduct(savedProduct);
+        if (savedWeight) setWaterWeight(savedWeight);
+        if (savedWaste) setWastePercentage(savedWaste);
+    }, []);
+
+    // Save to local storage and calculate
+    useEffect(() => {
+        localStorage.setItem('jesmonite_product', selectedProduct);
+        localStorage.setItem('jesmonite_weight', waterWeight);
+        localStorage.setItem('jesmonite_waste', wastePercentage);
+
         const weight = parseFloat(waterWeight) || 0;
         const waste = parseFloat(wastePercentage) || 0;
-        setResults(calculateMix(weight, waste));
-    }, [waterWeight, wastePercentage]);
+
+        // Trigger animation only if product changed
+        if (prevProductRef.current !== selectedProduct) {
+            setIsAnimating(true);
+            setTimeout(() => setIsAnimating(false), 300);
+            prevProductRef.current = selectedProduct;
+        }
+
+        setResults(calculateMix(weight, waste, selectedProduct));
+    }, [waterWeight, wastePercentage, selectedProduct]);
 
     return (
         <div id="calculator" className="min-h-screen w-full bg-white dark:bg-stone-950 py-20 px-4 transition-colors duration-300">
@@ -21,6 +48,27 @@ const Calculator = () => {
                     </h2>
 
                     <div className="grid md:grid-cols-2 gap-12 mb-12">
+                        {/* Product Selector */}
+                        <div className="md:col-span-2 mb-4">
+                            <label className="block text-sm font-medium text-stone-500 dark:text-stone-400 mb-4 uppercase tracking-wider text-center">
+                                Select Product
+                            </label>
+                            <div className="flex flex-wrap justify-center gap-4">
+                                {Object.keys(PRODUCTS).map((product) => (
+                                    <button
+                                        key={product}
+                                        onClick={() => setSelectedProduct(product)}
+                                        className={`px-6 py-3 rounded-xl font-bold text-lg transition-all duration-300 ${selectedProduct === product
+                                            ? 'bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900 shadow-lg scale-105'
+                                            : 'bg-white dark:bg-stone-800 text-stone-500 dark:text-stone-400 border-2 border-stone-200 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500'
+                                            }`}
+                                    >
+                                        {product}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         {/* Inputs */}
                         <div className="space-y-8">
                             <div>
@@ -58,7 +106,7 @@ const Calculator = () => {
                         </div>
 
                         {/* Results */}
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className={`grid grid-cols-1 gap-4 transition-opacity duration-300 ${isAnimating ? 'opacity-50' : 'opacity-100'}`}>
                             <ResultCard
                                 label="Base (Powder)"
                                 value={results.base}
